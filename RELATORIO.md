@@ -8,7 +8,7 @@
 
 - **Repositório:** https://github.com/mgm777/togglemaster-gcp-fase3
 - **Vídeo de demonstração:** `<PREENCHER>`
-- **Documentação técnica (runbook passo a passo):** ./docs/runbook-infra.md
+- **Documentação técnica (runbook passo a passo):** [docs/runbook-infra.md](./docs/runbook-infra.md)
 - **README do projeto:** [README.md](./README.md)
 
 ## Provedor de nuvem

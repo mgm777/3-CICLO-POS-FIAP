@@ -144,12 +144,6 @@ Adicione uma dependência com CVE crítica conhecida em um serviço Python
 falha no Trivy e o `docker-build-push` nem inicia. Reverta o commit e mostre o
 pipeline verde.
 
-## Documentação técnica
-
-O runbook passo a passo de como a infraestrutura foi construída — incluindo a
-explicação de cada decisão junto do trecho de código a que se refere — está em
-./docs/runbook-infra.md
-
 ## Decisões e trade-offs
 
 - **Cluster GKE zonal** em vez de regional: cria mais rápido e custa ~1/3 —
