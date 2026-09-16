@@ -85,7 +85,7 @@ jobs:
       # REGRA DE BLOQUEIO: qualquer CVE CRITICAL falha o pipeline aqui e o
       # job docker-build-push (que depende deste) nem chega a rodar.
       - name: SCA - Trivy filesystem (bloqueia em CRITICAL)
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@v0.33.1
         with:
           scan-type: fs
           scan-ref: ${{ inputs.service_path }}
@@ -97,7 +97,7 @@ jobs:
       # Relatorio informativo de HIGH — visivel no log, sem quebrar o build.
       - name: SCA - Trivy filesystem (relatorio HIGH)
         if: always()
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@v0.33.1
         with:
           scan-type: fs
           scan-ref: ${{ inputs.service_path }}
@@ -127,7 +127,7 @@ jobs:
 
       # Container Scan: a imagem final (base + libs do SO) tambem e auditada.
       - name: Container Scan - Trivy image (bloqueia em CRITICAL)
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@v0.33.1
         with:
           image-ref: ${{ inputs.service_name }}:${{ steps.tag.outputs.image_tag }}
           severity: CRITICAL
