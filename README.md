@@ -5,9 +5,6 @@ ToggleMaster (`auth`, `flag`, `targeting`, `evaluation`, `analytics`) usando
 **IaC (Terraform)**, **CI/CD com DevSecOps (GitHub Actions)** e **GitOps
 (ArgoCD)** em um cluster **GKE**.
 
-A Fase 2 deste grupo já havia sido entregue no Google Cloud; a Fase 3 mantém o
-mesmo provedor e substitui os serviços AWS do enunciado pelos equivalentes GCP:
-
 | Enunciado (AWS) | Implementado (GCP) |
 |---|---|
 | VPC, Subnets, IGW, Route Tables | VPC customizada, Subnet com ranges secundários, Cloud Router + Cloud NAT |

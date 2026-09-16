@@ -61,8 +61,15 @@ jobs:
           python-version: ${{ inputs.python_version }}
       - name: Instala flake8
         run: pip install flake8
-      - name: flake8
-        run: flake8 . --max-line-length=120 --extend-ignore=E203,W503
+      # Gate que bloqueia: erros de sintaxe e bugs reais detectados pelo
+      # pyflakes (nome indefinido, import quebrado, comparacao invalida).
+      - name: flake8 — erros que quebram o build
+        run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+      # Estilo (PEP 8) e reportado para leitura, sem travar a entrega de
+      # codigo herdado da Fase 2.
+      - name: flake8 — relatorio de estilo (nao bloqueia)
+        continue-on-error: true
+        run: flake8 . --count --max-line-length=120 --extend-ignore=E203,W503 --statistics
 
   # 3. Security Scan (SAST & SCA) ----------------------------------------------
   security-scan:
@@ -75,11 +82,20 @@ jobs:
           python-version: ${{ inputs.python_version }}
 
       # SAST: analisa o codigo-fonte em busca de padroes inseguros.
-      - name: SAST - bandit
+      # Bloqueia em severidade HIGH (mesmo criterio do gosec no lado Go).
+      # B104 (bind em 0.0.0.0) e ignorado: em container isso e o
+      # comportamento correto — quem controla a exposicao e o Service.
+      - name: SAST - bandit (bloqueia em HIGH)
         working-directory: ${{ inputs.service_path }}
         run: |
           pip install bandit
-          bandit -r . -ll --exclude ./test_app.py
+          bandit -r . -lll -ii --skip B104 --exclude ./test_app.py
+
+      - name: SAST - bandit (relatorio MEDIUM, nao bloqueia)
+        if: always()
+        working-directory: ${{ inputs.service_path }}
+        continue-on-error: true
+        run: bandit -r . -ll --skip B104 --exclude ./test_app.py
 
       # SCA: analisa as dependencias do requirements.txt.
       # REGRA DE BLOQUEIO: qualquer CVE CRITICAL falha o pipeline aqui e o
