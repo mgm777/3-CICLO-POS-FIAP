@@ -6,12 +6,14 @@ on:
       - "services/evaluation-service/**"
       - ".github/workflows/evaluation-service.yml"
       - ".github/workflows/reusable-go-ci.yml"
+      - ".golangci.yml"
   push:
     branches: [main]
     paths:
       - "services/evaluation-service/**"
       - ".github/workflows/evaluation-service.yml"
       - ".github/workflows/reusable-go-ci.yml"
+      - ".golangci.yml"
   workflow_dispatch: # permite disparar a mao durante a demonstracao
 
 jobs:
