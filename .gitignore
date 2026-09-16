@@ -1,4 +1,3 @@
-# Terraform
 .terraform/
 *.tfstate
 *.tfstate.*
@@ -8,7 +7,6 @@ crash.log
 override.tf
 override.tf.json
 
-# Credenciais — nunca versionar
 *.json.key
 sa-key*.json
 *-secret.yaml
@@ -16,17 +14,14 @@ sa-key*.json
 .env.*
 !.env.example
 
-# Python
 __pycache__/
 *.py[cod]
 .venv/
 venv/
 .pytest_cache/
 
-# Go
 bin/
 
-# Editor / SO
 .DS_Store
 .idea/
 .vscode/

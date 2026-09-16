@@ -26,7 +26,6 @@ variable "k8s_namespace" {
   default     = "togglemaster"
 }
 
-# --- GKE ---------------------------------------------------------------------
 variable "node_machine_type" {
   type    = string
   default = "e2-standard-2"
@@ -47,19 +46,16 @@ variable "node_max_count" {
   default = 4
 }
 
-# --- Cloud SQL ---------------------------------------------------------------
 variable "db_tier" {
   type    = string
   default = "db-f1-micro"
 }
 
-# --- Memorystore -------------------------------------------------------------
 variable "redis_memory_size_gb" {
   type    = number
   default = 1
 }
 
-# --- Firestore ---------------------------------------------------------------
 variable "firestore_location" {
   type    = string
   default = "us-central1"
@@ -71,13 +67,11 @@ variable "firestore_collection" {
   default     = "ToggleMasterAnalytics"
 }
 
-# --- CI/CD (Workload Identity Federation para o GitHub Actions) ---------------
 variable "github_repository" {
   description = "Repositorio GitHub no formato owner/repo autorizado a assumir a SA de CI via OIDC."
   type        = string
 }
 
-# --- ArgoCD ------------------------------------------------------------------
 variable "argocd_chart_version" {
   description = "Versao do chart Helm argo-cd (argoproj/argo-helm)."
   type        = string

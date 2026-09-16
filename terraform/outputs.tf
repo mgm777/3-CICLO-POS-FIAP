@@ -43,7 +43,6 @@ output "service_account_emails" {
   value = module.iam.service_account_emails
 }
 
-# --- Valores para cadastrar como secrets no GitHub ---------------------------
 output "github_secret_GCP_WIF_PROVIDER" {
   description = "Settings > Secrets and variables > Actions > GCP_WIF_PROVIDER"
   value       = module.cicd.workload_identity_provider

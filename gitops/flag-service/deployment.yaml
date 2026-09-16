@@ -15,13 +15,9 @@ spec:
       labels:
         app: flag-service
     spec:
-      # KSA vinculada a uma Google Service Account por Workload Identity:
-      # o pod autentica no GCP sem nenhuma chave JSON montada.
       serviceAccountName: flag-service-ksa
       containers:
         - name: flag-service
-          # A tag abaixo e reescrita automaticamente pelo job gitops-update
-          # do pipeline de CI. Nao edite a mao.
           image: us-central1-docker.pkg.dev/fiap-3-508723/flag-service/flag-service:v1.0.0-35de366
           ports:
             - containerPort: 8002
@@ -62,8 +58,6 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
-            # O kubelet so consegue provar que o usuario nao e root se o UID
-            # for numerico; os Dockerfiles criam appuser com uid 1000.
             runAsUser: 1000
             capabilities:
               drop: ["ALL"]

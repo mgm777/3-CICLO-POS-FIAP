@@ -1,15 +1,4 @@
 #!/usr/bin/env bash
-# Cria os Secrets do Kubernetes que os Deployments consomem.
-#
-# Nenhuma credencial vem de arquivo de texto no repositorio: as DATABASE_URLs
-# sao lidas do Secret Manager (criadas pelo Terraform, senhas geradas por
-# random_password) e a API key do evaluation-service e mintada na hora pelo
-# proprio auth-service.
-#
-# Uso:
-#   MASTER_KEY=$(openssl rand -hex 32) ./scripts/create-secrets.sh
-#
-# Guarde a MASTER_KEY: e ela que autoriza a criacao de novas API keys.
 set -euo pipefail
 
 PROJECT_ID="${PROJECT_ID:-fiap-3-508723}"
@@ -49,9 +38,6 @@ kubectl create secret generic targeting-service-secret \
   --from-literal=DATABASE_URL="$TARGETING_DB_URL" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-# O evaluation-service precisa de uma API key valida emitida pelo auth-service.
-# Enquanto o auth-service nao estiver de pe, criamos o Secret so com o Redis
-# para o pod conseguir subir; rode o script de novo depois para completar.
 echo "==> Tentando mintar a API key do evaluation-service no auth-service"
 SERVICE_API_KEY=""
 if kubectl wait --for=condition=available --timeout=10s \

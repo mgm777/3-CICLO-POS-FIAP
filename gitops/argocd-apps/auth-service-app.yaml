@@ -15,10 +15,9 @@ spec:
     server: https://kubernetes.default.svc
     namespace: togglemaster
   syncPolicy:
-    # Sync automatico: o ArgoCD aplica sozinho o que for commitado em gitops/auth-service.
     automated:
-      prune: true    # remove do cluster o que sumir do git
-      selfHeal: true # desfaz alteracao feita direto no cluster (kubectl apply manual)
+      prune: true
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
     retry:

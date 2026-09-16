@@ -13,8 +13,6 @@ variable "ack_deadline_seconds" {
   default = 30
 }
 
-# Equivalente GCP do SQS: o evaluation-service publica, o analytics-service
-# consome.
 resource "google_pubsub_topic" "evaluation_events" {
   name = var.topic_name
 }
@@ -29,8 +27,6 @@ resource "google_pubsub_subscription" "evaluation_events" {
 
   ack_deadline_seconds = var.ack_deadline_seconds
 
-  # Mensagem que falha 5 vezes vai para a DLQ em vez de ficar em loop infinito
-  # ("poison pill").
   dead_letter_policy {
     dead_letter_topic     = google_pubsub_topic.dead_letter.id
     max_delivery_attempts = 5
@@ -42,12 +38,10 @@ resource "google_pubsub_subscription" "evaluation_events" {
   }
 
   expiration_policy {
-    ttl = "" # nunca expira
+    ttl = ""
   }
 }
 
-# O service agent do Pub/Sub precisa poder publicar na DLQ e confirmar
-# mensagens da subscription para que o dead_letter_policy funcione.
 data "google_project" "this" {}
 
 locals {

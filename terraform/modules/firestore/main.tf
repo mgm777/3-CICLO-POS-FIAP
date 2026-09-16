@@ -11,9 +11,6 @@ variable "database_name" {
   default = "(default)"
 }
 
-# Equivalente GCP da tabela DynamoDB ToggleMasterAnalytics: o
-# analytics-service grava os eventos de avaliacao na colecao
-# ToggleMasterAnalytics deste banco.
 resource "google_firestore_database" "analytics" {
   project     = var.project_id
   name        = var.database_name

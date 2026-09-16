@@ -12,7 +12,7 @@ on:
       - "services/flag-service/**"
       - ".github/workflows/flag-service.yml"
       - ".github/workflows/reusable-python-ci.yml"
-  workflow_dispatch: # permite disparar a mao durante a demonstracao
+  workflow_dispatch:
 
 jobs:
   ci:

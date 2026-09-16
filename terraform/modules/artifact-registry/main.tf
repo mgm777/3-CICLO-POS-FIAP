@@ -19,8 +19,6 @@ resource "google_artifact_registry_repository" "service_repos" {
   format        = "DOCKER"
   description   = "Imagens Docker do ${each.value} (ToggleMaster)"
 
-  # Retencao: mantem as 10 tags mais recentes; o resto e limpo
-  # automaticamente (equivalente a lifecycle policy do ECR).
   cleanup_policies {
     id     = "keep-recent"
     action = "KEEP"

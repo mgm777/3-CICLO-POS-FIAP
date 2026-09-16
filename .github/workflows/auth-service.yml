@@ -14,7 +14,7 @@ on:
       - ".github/workflows/auth-service.yml"
       - ".github/workflows/reusable-go-ci.yml"
       - ".golangci.yml"
-  workflow_dispatch: # permite disparar a mao durante a demonstracao
+  workflow_dispatch:
 
 jobs:
   ci:

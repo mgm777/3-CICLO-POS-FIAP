@@ -15,11 +15,10 @@ on:
         default: "3.11"
 
 permissions:
-  contents: write # job gitops-update commita a nova tag neste repo
-  id-token: write # OIDC para o Workload Identity Federation do GCP
+  contents: write
+  id-token: write
 
 jobs:
-  # 1. Build & Unit Test -------------------------------------------------------
   build-test:
     name: Build & Unit Test
     runs-on: ubuntu-latest
@@ -47,7 +46,6 @@ jobs:
             echo "Sem testes unitarios neste servico."
           fi
 
-  # 2. Linter / Static Analysis ------------------------------------------------
   lint:
     name: Linter/Static Analysis
     runs-on: ubuntu-latest
@@ -61,17 +59,12 @@ jobs:
           python-version: ${{ inputs.python_version }}
       - name: Instala flake8
         run: pip install flake8
-      # Gate que bloqueia: erros de sintaxe e bugs reais detectados pelo
-      # pyflakes (nome indefinido, import quebrado, comparacao invalida).
       - name: flake8 — erros que quebram o build
         run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-      # Estilo (PEP 8) e reportado para leitura, sem travar a entrega de
-      # codigo herdado da Fase 2.
       - name: flake8 — relatorio de estilo (nao bloqueia)
         continue-on-error: true
         run: flake8 . --count --max-line-length=120 --extend-ignore=E203,W503 --statistics
 
-  # 3. Security Scan (SAST & SCA) ----------------------------------------------
   security-scan:
     name: "Security Scan (SAST & SCA)"
     runs-on: ubuntu-latest
@@ -81,10 +74,6 @@ jobs:
         with:
           python-version: ${{ inputs.python_version }}
 
-      # SAST: analisa o codigo-fonte em busca de padroes inseguros.
-      # Bloqueia em severidade HIGH (mesmo criterio do gosec no lado Go).
-      # B104 (bind em 0.0.0.0) e ignorado: em container isso e o
-      # comportamento correto — quem controla a exposicao e o Service.
       - name: SAST - bandit (bloqueia em HIGH)
         working-directory: ${{ inputs.service_path }}
         run: |
@@ -97,11 +86,6 @@ jobs:
         continue-on-error: true
         run: bandit -r . -ll --skip B104 --exclude ./test_app.py
 
-      # SCA: analisa as dependencias do requirements.txt.
-      # REGRA DE BLOQUEIO: qualquer CVE CRITICAL falha o pipeline aqui e o
-      # job docker-build-push (que depende deste) nem chega a rodar.
-      # Binario oficial em versao fixa: o resultado do scan nao muda porque
-      # uma action de terceiro mudou de comportamento.
       - name: Instala o Trivy
         run: |
           TRIVY_VERSION=0.74.0
@@ -117,7 +101,6 @@ jobs:
           trivy fs --scanners vuln --severity CRITICAL --ignore-unfixed \
             --exit-code 1 --no-progress "${{ inputs.service_path }}"
 
-      # Relatorio informativo de HIGH — visivel no log, sem quebrar o build.
       - name: SCA - Trivy filesystem (relatorio HIGH)
         if: always()
         continue-on-error: true
@@ -125,7 +108,6 @@ jobs:
           trivy fs --scanners vuln --severity HIGH --ignore-unfixed \
             --exit-code 0 --no-progress "${{ inputs.service_path }}"
 
-  # 4. Docker Build & Push -----------------------------------------------------
   docker-build-push:
     name: Docker Build & Push
     needs: [build-test, lint, security-scan]
@@ -144,7 +126,6 @@ jobs:
         working-directory: ${{ inputs.service_path }}
         run: docker build -t ${{ inputs.service_name }}:${{ steps.tag.outputs.image_tag }} .
 
-      # Container Scan: a imagem final (base + libs do SO) tambem e auditada.
       - name: Instala o Trivy
         run: |
           TRIVY_VERSION=0.74.0
@@ -159,8 +140,6 @@ jobs:
           trivy image --severity CRITICAL --ignore-unfixed --exit-code 1 --no-progress \
             "${{ inputs.service_name }}:${{ steps.tag.outputs.image_tag }}"
 
-      # Autenticacao sem chave: troca o token OIDC do GitHub por um token de
-      # curta duracao do GCP (Workload Identity Federation).
       - name: Autentica no GCP (OIDC / WIF)
         uses: google-github-actions/auth@v2
         with:
@@ -177,9 +156,6 @@ jobs:
           docker push "$IMAGE_URI"
           echo "Imagem publicada: $IMAGE_URI"
 
-  # 5. GitOps: atualiza a tag no manifesto ------------------------------------
-  # O pipeline NAO faz kubectl apply. Ele so commita a nova tag; quem aplica
-  # no cluster e o ArgoCD, que observa a pasta gitops/.
   gitops-update:
     name: Atualiza a tag no GitOps
     needs: docker-build-push
@@ -201,7 +177,6 @@ jobs:
           git add "$FILE"
           git diff --cached --quiet && { echo "Nada mudou"; exit 0; }
           git commit -m "chore(gitops): ${{ inputs.service_name }} -> ${NEW_TAG}"
-          # Outro servico pode ter commitado enquanto este job rodava.
           for i in 1 2 3; do
             git pull --rebase origin main && git push origin main && exit 0
             sleep 5

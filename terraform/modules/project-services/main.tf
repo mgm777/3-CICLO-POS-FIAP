@@ -13,8 +13,6 @@ resource "google_project_service" "this" {
   project = var.project_id
   service = each.value
 
-  # Nao desabilita a API no destroy: desabilitar container.googleapis.com
-  # derruba clusters de outros ambientes no mesmo projeto.
   disable_on_destroy = false
 }
 

@@ -5,8 +5,6 @@ resource "google_container_cluster" "primary" {
   network    = var.network_id
   subnetwork = var.subnet_id
 
-  # O node pool default e removido para que todo o pool gerenciado seja
-  # descrito em codigo (google_container_node_pool abaixo).
   remove_default_node_pool = true
   initial_node_count       = 1
 
@@ -15,9 +13,6 @@ resource "google_container_cluster" "primary" {
     services_secondary_range_name = var.services_range_name
   }
 
-  # Workload Identity: os pods assumem Service Accounts do GCP sem nenhuma
-  # chave JSON montada no container. E a resposta direta ao problema
-  # "credenciais passadas em arquivos de texto sem seguranca" do enunciado.
   workload_identity_config {
     workload_pool = "${var.project_id}.svc.id.goog"
   }
@@ -46,8 +41,6 @@ resource "google_container_node_pool" "primary_nodes" {
     disk_size_gb = 30
     disk_type    = "pd-balanced"
 
-    # Obriga os pods a passarem pelo metadata server do GKE (Workload
-    # Identity) em vez de herdarem a SA do node.
     workload_metadata_config {
       mode = "GKE_METADATA"
     }

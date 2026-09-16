@@ -26,7 +26,6 @@ variable "cluster_id" {
   type        = string
 }
 
-# Uma GSA por servico: menor privilegio, sem SA compartilhada entre workloads.
 resource "google_service_account" "app" {
   for_each = toset(var.services)
 
@@ -60,7 +59,6 @@ resource "google_project_iam_member" "firestore_user" {
   member  = "serviceAccount:${google_service_account.app["analytics-service"].email}"
 }
 
-# Cada servico le apenas o secret da sua propria DATABASE_URL.
 resource "google_secret_manager_secret_iam_member" "database_url_accessor" {
   for_each = var.database_url_secret_ids
 
@@ -70,9 +68,6 @@ resource "google_secret_manager_secret_iam_member" "database_url_accessor" {
   member    = "serviceAccount:${google_service_account.app[each.key].email}"
 }
 
-# --- Workload Identity -------------------------------------------------------
-# Liga a KSA <servico>-ksa do namespace da aplicacao a GSA correspondente.
-# E isso que permite o pod autenticar no GCP sem nenhuma chave JSON.
 resource "google_service_account_iam_member" "workload_identity" {
   for_each = toset(var.services)
 

@@ -26,8 +26,6 @@ provider "google" {
   region  = var.region
 }
 
-# Token de curta duração do usuário/SA autenticado no gcloud — nenhuma chave
-# estática de service account é gravada em disco ou no state.
 data "google_client_config" "default" {}
 
 provider "kubernetes" {

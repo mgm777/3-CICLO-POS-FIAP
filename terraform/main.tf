@@ -7,8 +7,6 @@ locals {
     "analytics-service",
   ]
 
-  # Database-per-service: 3 instancias Cloud SQL Postgres (equivalente as
-  # 3 instancias RDS pedidas no enunciado).
   sql_instances = {
     "auth-service"      = { db_name = "auth_db", user_name = "auth_user" }
     "flag-service"      = { db_name = "flags_db", user_name = "flags_user" }

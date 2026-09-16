@@ -17,10 +17,6 @@ variable "provider_id" {
   default = "github-provider"
 }
 
-# --- Workload Identity Federation --------------------------------------------
-# O GitHub Actions troca seu token OIDC por um token de curta duracao do GCP.
-# Nenhuma chave JSON de service account e criada, baixada ou guardada como
-# secret do GitHub — nada para vazar ou rotacionar.
 resource "google_iam_workload_identity_pool" "github" {
   workload_identity_pool_id = var.pool_id
   display_name              = "GitHub Actions"
@@ -38,8 +34,6 @@ resource "google_iam_workload_identity_pool_provider" "github" {
     "attribute.actor"      = "assertion.actor"
   }
 
-  # Sem esta condicao, qualquer repositorio do GitHub no mundo poderia tentar
-  # assumir a SA. Restringe a federacao a este repositorio.
   attribute_condition = "assertion.repository == \"${var.github_repository}\""
 
   oidc {
@@ -47,15 +41,11 @@ resource "google_iam_workload_identity_pool_provider" "github" {
   }
 }
 
-# --- Service Account usada pelo pipeline -------------------------------------
 resource "google_service_account" "ci" {
   account_id   = "github-actions-ci"
   display_name = "GitHub Actions CI (ToggleMaster)"
 }
 
-# Permissao minima: empurrar imagem para o Artifact Registry.
-# O deploy no cluster NAO passa por aqui — quem aplica no cluster e o ArgoCD
-# (GitOps), entao o pipeline nao precisa de nenhuma credencial do Kubernetes.
 resource "google_project_iam_member" "ci_artifact_writer" {
   project = var.project_id
   role    = "roles/artifactregistry.writer"

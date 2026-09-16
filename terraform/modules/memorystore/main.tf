@@ -25,8 +25,6 @@ variable "private_vpc_connection_id" {
   type = string
 }
 
-# Equivalente GCP do ElastiCache: cache do evaluation-service.
-# Tier BASIC (sem replica) — decisao de custo para ambiente de estudo.
 resource "google_redis_instance" "cache" {
   name           = var.name
   tier           = "BASIC"

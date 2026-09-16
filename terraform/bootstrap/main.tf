@@ -1,11 +1,3 @@
-# Bootstrap: cria o bucket GCS que guarda o terraform.tfstate remoto da
-# infraestrutura principal.
-#
-# Este modulo e o unico com state LOCAL — nao da para guardar o state do
-# bucket dentro do proprio bucket. Rode uma vez, depois use o bucket em
-# ../backend.tf.
-#
-#   terraform init && terraform apply -var project_id=fiap-3-508723
 
 terraform {
   required_version = ">= 1.10"
@@ -37,15 +29,12 @@ resource "google_storage_bucket" "tfstate" {
   location      = var.region
   force_destroy = false
 
-  # Guarda o historico do state: permite voltar atras se um apply corromper
-  # o arquivo (equivalente ao versioning do bucket S3).
   versioning {
     enabled = true
   }
 
   uniform_bucket_level_access = true
 
-  # Bloqueia qualquer tentativa de tornar o state publico.
   public_access_prevention = "enforced"
 
   lifecycle_rule {

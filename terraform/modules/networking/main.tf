@@ -9,8 +9,6 @@ resource "google_compute_subnetwork" "subnet" {
   region        = var.region
   ip_cidr_range = var.subnet_cidr
 
-  # Permite que nodes sem IP externo alcancem APIs do Google (Artifact
-  # Registry, Cloud Logging) sem passar pela internet publica.
   private_ip_google_access = true
 
   secondary_ip_range {
@@ -24,10 +22,6 @@ resource "google_compute_subnetwork" "subnet" {
   }
 }
 
-# --- Private Service Access --------------------------------------------------
-# Cloud SQL e Memorystore sao servicos gerenciados que vivem em um projeto da
-# Google; o acesso privado a eles se da por VPC peering sobre esta faixa
-# reservada. E o equivalente GCP de manter o RDS/ElastiCache em subnet privada.
 resource "google_compute_global_address" "private_service_range" {
   name          = "${var.name_prefix}-psa-range"
   purpose       = "VPC_PEERING"
@@ -42,9 +36,6 @@ resource "google_service_networking_connection" "private_vpc_connection" {
   reserved_peering_ranges = [google_compute_global_address.private_service_range.name]
 }
 
-# --- Cloud Router + Cloud NAT ------------------------------------------------
-# Saida para a internet para os nodes do GKE (pull de imagens de base,
-# download de modulos) sem expor IP publico em cada node.
 resource "google_compute_router" "router" {
   name    = "${var.name_prefix}-router"
   region  = var.region
