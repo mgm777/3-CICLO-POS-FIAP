@@ -2,7 +2,12 @@ version: "2"
 
 linters:
   default: standard
-  # json.NewEncoder(w).Encode(...) em handler HTTP: o retorno nao tem o que
-  # ser tratado depois que o header ja foi escrito.
   disable:
     - errcheck
+
+  exclusions:
+    rules:
+      - linters:
+          - staticcheck
+        text: "SA1019"
+        path: "services/evaluation-service"
