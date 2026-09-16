@@ -47,11 +47,10 @@ jobs:
         with:
           go-version: ${{ inputs.go_version }}
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v8
         with:
           version: v2.6.1
           working-directory: ${{ inputs.service_path }}
-          args: --timeout=5m
 
   # 3. Security Scan (SAST & SCA) ----------------------------------------------
   security-scan:
