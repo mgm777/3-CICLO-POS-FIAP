@@ -93,7 +93,7 @@ jobs:
             "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
           tar -xzf /tmp/trivy.tar.gz -C "$HOME/.trivy-bin" trivy
           echo "$HOME/.trivy-bin" >> "$GITHUB_PATH"
-          trivy --version
+          "$HOME/.trivy-bin/trivy" --version
 
       - name: SCA - Trivy filesystem (bloqueia em CRITICAL)
         run: |
