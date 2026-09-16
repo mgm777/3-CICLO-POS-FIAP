@@ -22,7 +22,7 @@ spec:
         - name: analytics-service
           # A tag abaixo e reescrita automaticamente pelo job gitops-update
           # do pipeline de CI. Nao edite a mao.
-          image: us-central1-docker.pkg.dev/fiap-3-508723/analytics-service/analytics-service:v1.0.0-init
+          image: us-central1-docker.pkg.dev/fiap-3-508723/analytics-service/analytics-service:v1.0.0-35de366
           ports:
             - containerPort: 8005
           env:
