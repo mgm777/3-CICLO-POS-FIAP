@@ -10,4 +10,3 @@ linters:
       - linters:
           - staticcheck
         text: "SA1019"
-        path: "services/evaluation-service"
