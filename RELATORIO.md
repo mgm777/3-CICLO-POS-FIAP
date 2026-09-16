@@ -74,7 +74,39 @@ a esteira em CVEs transitivos de imagem base sem correção publicada e tornaria
 entrega impossível de demonstrar. O corte ficou em `CRITICAL` — que é o que o
 enunciado pede — e `HIGH` é escaneado e impresso no log sem travar o fluxo.
 
-### 4. Ordem de criação entre Terraform e ArgoCD
+### 4. Migração do Pub/Sub v1 para v2
+
+Ao atualizar as dependências para corrigir a CVE do gRPC, o `staticcheck`
+passou a acusar `SA1019`: o pacote `cloud.google.com/go/pubsub` v1 está
+deprecado em favor do `pubsub/v2`. A saída rápida seria excluir o aviso no
+linter — e foi o que se fez em um primeiro momento, criando dívida técnica
+disfarçada de configuração.
+
+A decisão final foi migrar de fato. A API v2 troca o modelo de *topic* por um
+de *publisher* com ciclo de vida explícito:
+
+```go
+// v1 — o topic é obtido do client e publicado direto
+topic = client.Topic(pubsubTopicID)
+topic.Publish(ctx, &pubsub.Message{Data: body})
+
+// v2 — publisher com Stop() no encerramento, que garante o flush do buffer
+publisher = client.Publisher(pubsubTopicID)
+defer publisher.Stop()
+publisher.Publish(ctx, &pubsub.Message{Data: body})
+```
+
+Com a migração, a exclusão de `SA1019` saiu do `.golangci.yml` — o linter voltou
+a rodar com o conjunto padrão completo, sem exceção nenhuma nos serviços Go.
+Efeito colateral bem-vindo: o `pubsub/v2` arrasta `google.golang.org/grpc`
+para v1.82.1, acima da v1.79.3 que corrigia a CVE-2026-33186.
+
+A lição registrada: **excluir um aviso de linter é decisão de produto, não de
+configuração.** Quando a exclusão existe só para silenciar uma migração
+pendente, ela esconde exatamente o tipo de dívida que o enunciado desta fase
+pede para eliminar.
+
+### 5. Ordem de criação entre Terraform e ArgoCD
 
 As `kubernetes_service_account` com anotação de Workload Identity precisam existir
 antes do primeiro sync do ArgoCD, senão os pods sobem sem identidade e falham ao
@@ -83,13 +115,13 @@ Terraform (providers `kubernetes`/`helm` autenticados com token de curta duraç�
 do `google_client_config`), e os Deployments/Services ficam no `gitops/`, sob
 responsabilidade do ArgoCD.
 
-### 5. `runAsNonRoot` exige UID numérico
+### 6. `runAsNonRoot` exige UID numérico
 
 Os Deployments subiam com `CreateContainerConfigError`. O kubelet só consegue
 provar que o usuário não é root se o UID for numérico — `USER appuser` no
 Dockerfile não basta. Corrigido com `runAsUser: 1000` no `securityContext`.
 
-### 6. Ferramental de CI: três falhas encadeadas
+### 7. Ferramental de CI: três falhas encadeadas
 
 Os cinco workflows falhavam em `startup_failure` sem gerar log de job. Causa:
 *Workflow permissions* do repositório em read-only, enquanto os workflows
@@ -100,7 +132,7 @@ versão fixa, o que também deixa o scan reproduzível. Por fim, `golangci-lint`
 v1.61 não lê módulos Go 1.25 e a action v6 não fala com o golangci-lint v2 —
 foi preciso subir os dois juntos.
 
-### 7. Private Service Access
+### 8. Private Service Access
 
 Cloud SQL e Memorystore rodam em um projeto da Google, não no nosso. Alcançá-los
 por IP privado exige reservar uma faixa e estabelecer um VPC peering antes — e
