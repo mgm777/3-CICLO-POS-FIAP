@@ -83,27 +83,26 @@ jobs:
       # SCA: analisa as dependencias declaradas no go.mod/go.sum.
       # REGRA DE BLOQUEIO: qualquer CVE CRITICAL falha o pipeline aqui e o
       # job docker-build-push (que depende deste) nem chega a rodar.
+      # Binario oficial em versao fixa: o resultado do scan nao muda porque
+      # uma action de terceiro mudou de comportamento.
+      - name: Instala o Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sh -s -- -b /usr/local/bin v0.58.1
+          trivy --version
+
       - name: SCA - Trivy filesystem (bloqueia em CRITICAL)
-        uses: aquasecurity/trivy-action@v0.33.1
-        with:
-          scan-type: fs
-          scan-ref: ${{ inputs.service_path }}
-          scanners: vuln
-          severity: CRITICAL
-          exit-code: "1"
-          ignore-unfixed: true
+        run: |
+          trivy fs --scanners vuln --severity CRITICAL --ignore-unfixed \
+            --exit-code 1 --no-progress "${{ inputs.service_path }}"
 
       # Relatorio informativo de HIGH — visivel no log, sem quebrar o build.
       - name: SCA - Trivy filesystem (relatorio HIGH)
         if: always()
-        uses: aquasecurity/trivy-action@v0.33.1
-        with:
-          scan-type: fs
-          scan-ref: ${{ inputs.service_path }}
-          scanners: vuln
-          severity: HIGH
-          exit-code: "0"
-          ignore-unfixed: true
+        continue-on-error: true
+        run: |
+          trivy fs --scanners vuln --severity HIGH --ignore-unfixed \
+            --exit-code 0 --no-progress "${{ inputs.service_path }}"
 
   # 4. Docker Build & Push -----------------------------------------------------
   docker-build-push:
@@ -125,13 +124,15 @@ jobs:
         run: docker build -t ${{ inputs.service_name }}:${{ steps.tag.outputs.image_tag }} .
 
       # Container Scan: a imagem final (base + libs do SO) tambem e auditada.
+      - name: Instala o Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sh -s -- -b /usr/local/bin v0.58.1
+
       - name: Container Scan - Trivy image (bloqueia em CRITICAL)
-        uses: aquasecurity/trivy-action@v0.33.1
-        with:
-          image-ref: ${{ inputs.service_name }}:${{ steps.tag.outputs.image_tag }}
-          severity: CRITICAL
-          exit-code: "1"
-          ignore-unfixed: true
+        run: |
+          trivy image --severity CRITICAL --ignore-unfixed --exit-code 1 --no-progress \
+            "${{ inputs.service_name }}:${{ steps.tag.outputs.image_tag }}"
 
       # Autenticacao sem chave: troca o token OIDC do GitHub por um token de
       # curta duracao do GCP (Workload Identity Federation).
