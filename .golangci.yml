@@ -4,9 +4,3 @@ linters:
   default: standard
   disable:
     - errcheck
-
-  exclusions:
-    rules:
-      - linters:
-          - staticcheck
-        text: "SA1019"

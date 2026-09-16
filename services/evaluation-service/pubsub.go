@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"cloud.google.com/go/pubsub"
+	"cloud.google.com/go/pubsub/v2"
 )
 
 type EvaluationEvent struct {
@@ -16,7 +16,7 @@ type EvaluationEvent struct {
 }
 
 func (a *App) sendEvaluationEvent(userID, flagName string, result bool) {
-	if a.PubsubTopic == nil {
+	if a.PubsubPublisher == nil {
 		log.Printf("[PUBSUB_DISABLED] Evento: User '%s', Flag '%s', Result '%t'", userID, flagName, result)
 		return
 	}
@@ -34,7 +34,7 @@ func (a *App) sendEvaluationEvent(userID, flagName string, result bool) {
 		return
 	}
 
-	publishResult := a.PubsubTopic.Publish(ctx, &pubsub.Message{Data: body})
+	publishResult := a.PubsubPublisher.Publish(ctx, &pubsub.Message{Data: body})
 	if _, err := publishResult.Get(ctx); err != nil {
 		log.Printf("Erro ao publicar mensagem no Pub/Sub: %v", err)
 	} else {

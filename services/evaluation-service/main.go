@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"cloud.google.com/go/pubsub"
+	"cloud.google.com/go/pubsub/v2"
 	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
 )
@@ -16,7 +16,7 @@ var ctx = context.Background()
 
 type App struct {
 	RedisClient         *redis.Client
-	PubsubTopic         *pubsub.Topic
+	PubsubPublisher     *pubsub.Publisher
 	HttpClient          *http.Client
 	FlagServiceURL      string
 	TargetingServiceURL string
@@ -61,14 +61,15 @@ func main() {
 	}
 	log.Println("Conectado ao Redis com sucesso!")
 
-	var topic *pubsub.Topic
+	var publisher *pubsub.Publisher
 	if gcpProjectID != "" && pubsubTopicID != "" {
 		client, err := pubsub.NewClient(ctx, gcpProjectID)
 		if err != nil {
 			log.Fatalf("Não foi possível criar o client do Pub/Sub: %v", err)
 		}
-		topic = client.Topic(pubsubTopicID)
-		log.Println("Client do Pub/Sub inicializado com sucesso.")
+		publisher = client.Publisher(pubsubTopicID)
+		defer publisher.Stop()
+		log.Println("Publisher do Pub/Sub inicializado com sucesso.")
 	}
 
 	httpClient := &http.Client{
@@ -77,7 +78,7 @@ func main() {
 
 	app := &App{
 		RedisClient:         rdb,
-		PubsubTopic:         topic,
+		PubsubPublisher:     publisher,
 		HttpClient:          httpClient,
 		FlagServiceURL:      flagSvcURL,
 		TargetingServiceURL: targetingSvcURL,
