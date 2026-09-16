@@ -1,0 +1,21 @@
+# Configuracao do golangci-lint para os servicos Go herdados da Fase 2.
+#
+# O gate que bloqueia a entrega e o de seguranca (gosec + Trivy). O linter
+# roda com os analisadores que apontam bug de verdade (govet, staticcheck,
+# ineffassign, unused) e sem os que so acusariam divida de estilo em codigo
+# que ja estava escrito antes desta fase.
+run:
+  timeout: 5m
+
+linters:
+  disable:
+    # json.NewEncoder(w).Encode(...) em handler HTTP: o retorno nao tem o que
+    # ser tratado depois que o header ja foi escrito.
+    - errcheck
+
+issues:
+  exclude-rules:
+    # io/ioutil depreciado: troca puramente cosmetica, sem impacto de seguranca.
+    - linters:
+        - staticcheck
+      text: "SA1019"

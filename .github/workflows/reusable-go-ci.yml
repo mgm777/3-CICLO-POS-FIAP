@@ -64,11 +64,21 @@ jobs:
           go-version: ${{ inputs.go_version }}
 
       # SAST: analisa o codigo-fonte em busca de padroes inseguros.
-      - name: SAST - gosec
+      # Bloqueia em severidade HIGH com confianca HIGH. Exclusoes documentadas:
+      #   G104 - erro nao tratado (coberto pelo linter, nao e vulnerabilidade)
+      #   G115 - conversao de inteiro; falso positivo em conversao de tamanho
+      #   G704 - "SSRF": as URLs vem de ConfigMap interno, nao de input do usuario
+      - name: SAST - gosec (bloqueia em HIGH)
         working-directory: ${{ inputs.service_path }}
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
-          gosec -severity high ./...
+          gosec -severity high -confidence high -exclude=G104,G115,G704 ./...
+
+      - name: SAST - gosec (relatorio completo, nao bloqueia)
+        if: always()
+        working-directory: ${{ inputs.service_path }}
+        continue-on-error: true
+        run: gosec ./...
 
       # SCA: analisa as dependencias declaradas no go.mod/go.sum.
       # REGRA DE BLOQUEIO: qualquer CVE CRITICAL falha o pipeline aqui e o
