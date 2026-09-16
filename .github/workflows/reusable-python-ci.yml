@@ -1,0 +1,184 @@
+name: Reusable - Python CI (DevSecOps)
+
+on:
+  workflow_call:
+    inputs:
+      service_name:
+        required: true
+        type: string
+      service_path:
+        required: true
+        type: string
+      python_version:
+        required: false
+        type: string
+        default: "3.11"
+
+permissions:
+  contents: write # job gitops-update commita a nova tag neste repo
+  id-token: write # OIDC para o Workload Identity Federation do GCP
+
+jobs:
+  # 1. Build & Unit Test -------------------------------------------------------
+  build-test:
+    name: Build & Unit Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.service_path }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+          cache: pip
+          cache-dependency-path: ${{ inputs.service_path }}/requirements.txt
+      - name: Instala dependencias
+        run: |
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Compila os modulos (sintaxe)
+        run: python -m compileall -q .
+      - name: Testes unitarios
+        run: |
+          if ls test_*.py >/dev/null 2>&1; then
+            pytest -v
+          else
+            echo "Sem testes unitarios neste servico."
+          fi
+
+  # 2. Linter / Static Analysis ------------------------------------------------
+  lint:
+    name: Linter/Static Analysis
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.service_path }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+      - name: Instala flake8
+        run: pip install flake8
+      - name: flake8
+        run: flake8 . --max-line-length=120 --extend-ignore=E203,W503
+
+  # 3. Security Scan (SAST & SCA) ----------------------------------------------
+  security-scan:
+    name: "Security Scan (SAST & SCA)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      # SAST: analisa o codigo-fonte em busca de padroes inseguros.
+      - name: SAST - bandit
+        working-directory: ${{ inputs.service_path }}
+        run: |
+          pip install bandit
+          bandit -r . -ll --exclude ./test_app.py
+
+      # SCA: analisa as dependencias do requirements.txt.
+      # REGRA DE BLOQUEIO: qualquer CVE CRITICAL falha o pipeline aqui e o
+      # job docker-build-push (que depende deste) nem chega a rodar.
+      - name: SCA - Trivy filesystem (bloqueia em CRITICAL)
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          scan-type: fs
+          scan-ref: ${{ inputs.service_path }}
+          scanners: vuln
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+
+      # Relatorio informativo de HIGH — visivel no log, sem quebrar o build.
+      - name: SCA - Trivy filesystem (relatorio HIGH)
+        if: always()
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          scan-type: fs
+          scan-ref: ${{ inputs.service_path }}
+          scanners: vuln
+          severity: HIGH
+          exit-code: "0"
+          ignore-unfixed: true
+
+  # 4. Docker Build & Push -----------------------------------------------------
+  docker-build-push:
+    name: Docker Build & Push
+    needs: [build-test, lint, security-scan]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      image_tag: ${{ steps.tag.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Define a tag da imagem
+        id: tag
+        run: echo "image_tag=v1.0.0-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Build da imagem
+        working-directory: ${{ inputs.service_path }}
+        run: docker build -t ${{ inputs.service_name }}:${{ steps.tag.outputs.image_tag }} .
+
+      # Container Scan: a imagem final (base + libs do SO) tambem e auditada.
+      - name: Container Scan - Trivy image (bloqueia em CRITICAL)
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          image-ref: ${{ inputs.service_name }}:${{ steps.tag.outputs.image_tag }}
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+
+      # Autenticacao sem chave: troca o token OIDC do GitHub por um token de
+      # curta duracao do GCP (Workload Identity Federation).
+      - name: Autentica no GCP (OIDC / WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_CI_SERVICE_ACCOUNT }}
+
+      - name: Login no Artifact Registry
+        run: gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Push para o Artifact Registry
+        run: |
+          IMAGE_URI="${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ inputs.service_name }}/${{ inputs.service_name }}:${{ steps.tag.outputs.image_tag }}"
+          docker tag ${{ inputs.service_name }}:${{ steps.tag.outputs.image_tag }} "$IMAGE_URI"
+          docker push "$IMAGE_URI"
+          echo "Imagem publicada: $IMAGE_URI"
+
+  # 5. GitOps: atualiza a tag no manifesto ------------------------------------
+  # O pipeline NAO faz kubectl apply. Ele so commita a nova tag; quem aplica
+  # no cluster e o ArgoCD, que observa a pasta gitops/.
+  gitops-update:
+    name: Atualiza a tag no GitOps
+    needs: docker-build-push
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Reescreve a tag em gitops/${{ inputs.service_name }}/deployment.yaml
+        run: |
+          set -euo pipefail
+          FILE="gitops/${{ inputs.service_name }}/deployment.yaml"
+          NEW_TAG="${{ needs.docker-build-push.outputs.image_tag }}"
+          sed -i -E "s|(image: .*/${{ inputs.service_name }}:).*|\1${NEW_TAG}|" "$FILE"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$FILE"
+          git diff --cached --quiet && { echo "Nada mudou"; exit 0; }
+          git commit -m "chore(gitops): ${{ inputs.service_name }} -> ${NEW_TAG}"
+          # Outro servico pode ter commitado enquanto este job rodava.
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin main && exit 0
+            sleep 5
+          done
+          exit 1

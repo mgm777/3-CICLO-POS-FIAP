@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: flag-service
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/mgm777/togglemaster-gcp-fase3.git
+    targetRevision: main
+    path: gitops/flag-service
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: togglemaster
+  syncPolicy:
+    # Sync automatico: o ArgoCD aplica sozinho o que for commitado em gitops/flag-service.
+    automated:
+      prune: true    # remove do cluster o que sumir do git
+      selfHeal: true # desfaz alteracao feita direto no cluster (kubectl apply manual)
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        maxDuration: 3m
+        factor: 2
