@@ -49,7 +49,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.61
+          version: v2.6.1
           working-directory: ${{ inputs.service_path }}
           args: --timeout=5m
 

@@ -69,5 +69,8 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
+            # O kubelet so consegue provar que o usuario nao e root se o UID
+            # for numerico; os Dockerfiles criam appuser com uid 1000.
+            runAsUser: 1000
             capabilities:
               drop: ["ALL"]
