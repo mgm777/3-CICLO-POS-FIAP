@@ -88,7 +88,8 @@ jobs:
       - name: Instala o Trivy
         run: |
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-            | sh -s -- -b /usr/local/bin v0.58.1
+            | sh -s -- -b "$HOME/.trivy-bin" v0.58.1
+          echo "$HOME/.trivy-bin" >> "$GITHUB_PATH"
           trivy --version
 
       - name: SCA - Trivy filesystem (bloqueia em CRITICAL)
@@ -127,7 +128,8 @@ jobs:
       - name: Instala o Trivy
         run: |
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-            | sh -s -- -b /usr/local/bin v0.58.1
+            | sh -s -- -b "$HOME/.trivy-bin" v0.58.1
+          echo "$HOME/.trivy-bin" >> "$GITHUB_PATH"
 
       - name: Container Scan - Trivy image (bloqueia em CRITICAL)
         run: |
