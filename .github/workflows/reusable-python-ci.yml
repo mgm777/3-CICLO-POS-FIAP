@@ -104,7 +104,7 @@ jobs:
       # uma action de terceiro mudou de comportamento.
       - name: Instala o Trivy
         run: |
-          TRIVY_VERSION=0.58.1
+          TRIVY_VERSION=0.74.0
           mkdir -p "$HOME/.trivy-bin"
           curl -sSfL -o /tmp/trivy.tar.gz \
             "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
@@ -147,7 +147,7 @@ jobs:
       # Container Scan: a imagem final (base + libs do SO) tambem e auditada.
       - name: Instala o Trivy
         run: |
-          TRIVY_VERSION=0.58.1
+          TRIVY_VERSION=0.74.0
           mkdir -p "$HOME/.trivy-bin"
           curl -sSfL -o /tmp/trivy.tar.gz \
             "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
