@@ -6,7 +6,7 @@
 
 ## Links
 
-- **Repositório:** https://github.com/mgm777/togglemaster-gcp-fase3
+- **Repositório:** https://github.com/mgm777/3-CICLO-POS-FIAP
 - **Vídeo de demonstração:** `<PREENCHER>`
 - **Documentação técnica (runbook passo a passo):** [docs/runbook-infra.md](./docs/runbook-infra.md)
 - **README do projeto:** [README.md](./README.md)
