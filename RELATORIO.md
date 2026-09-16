@@ -8,88 +8,126 @@
 
 - **Repositório:** https://github.com/mgm777/togglemaster-gcp-fase3
 - **Vídeo de demonstração:** `<PREENCHER>`
-- **Documentação:** [README.md](./README.md) do próprio repositório
+- **Documentação técnica (runbook passo a passo):** ./docs/runbook-infra.md
+- **README do projeto:** [README.md](./README.md)
 
 ## Provedor de nuvem
 
 O enunciado descreve a infraestrutura em AWS. A Fase 2 deste grupo foi entregue
 no **Google Cloud**, e a Fase 3 é a continuação direta daquele ambiente — por
-isso toda a automação foi feita em GCP, com os equivalentes diretos de cada
-serviço pedido (a tabela de correspondência está no README). A restrição de IAM
-do AWS Academy não se aplica: o projeto é uma conta pessoal com billing próprio,
-o que corresponde à **Opção B** do enunciado, então as service accounts e os
-papéis de IAM são todos criados via Terraform.
+isso toda a automação foi feita em GCP, com o equivalente direto de cada serviço
+pedido (tabela de correspondência no README). A restrição de IAM do AWS Academy
+não se aplica: o projeto `fiap-3-508723` é conta pessoal com billing próprio,
+o que corresponde à **Opção B** do enunciado; as service accounts e os papéis de
+IAM são todos criados via Terraform.
+
+## O que foi entregue
+
+| Requisito | Estado |
+|---|---|
+| Terraform modularizado (10 módulos) | ✅ 83 recursos aplicados |
+| Backend remoto (bucket versionado) | ✅ `gs://fiap-3-508723-tfstate` |
+| Rede, cluster, 3 bancos, cache, NoSQL, fila, 5 registries | ✅ |
+| Pipeline por microsserviço com build, lint, SAST, SCA, container scan | ✅ 5 workflows verdes |
+| Regra de bloqueio em CRÍTICA | ✅ bloqueou 6 CVEs reais (abaixo) |
+| Push no registry com tag do commit | ✅ `v1.0.0-<sha7>` |
+| Atualização automática da tag no GitOps | ✅ commits `chore(gitops): …` |
+| ArgoCD sincronizando os 5 microsserviços | ✅ 6 Applications `Synced`/`Healthy` |
 
 ## Resumo dos desafios encontrados e decisões tomadas
 
-### 1. State remoto e o problema do ovo e da galinha
+### 1. O state remoto e o problema do ovo e da galinha
 
 O bucket que guarda o `terraform.tfstate` não pode ser criado pelo mesmo
-Terraform que o usa como backend. A solução foi um módulo `terraform/bootstrap`
-separado, com state local, cujo único trabalho é criar o bucket GCS versionado.
-A partir daí, toda a infraestrutura principal usa `backend "gcs"` — o state sai
-da máquina do desenvolvedor, que era exatamente a origem dos "conflitos de
-versão" descritos no enunciado.
+Terraform que o usa como backend — no primeiro `init` ele ainda não existe. A
+saída foi um projeto Terraform separado (`terraform/bootstrap`), com state local,
+cuja única função é criar o bucket versionado. A partir daí o state sai da
+máquina do desenvolvedor, que era exatamente a origem dos "conflitos de versão"
+descritos no enunciado.
 
-### 2. Acabar com as credenciais em arquivo de texto
+### 2. Três camadas para eliminar credencial em texto
 
-Três camadas, nenhuma delas com segredo de longa duração em disco:
-
-- As senhas do Cloud SQL são geradas por `random_password` e gravadas no
+- As senhas do Postgres são geradas por `random_password` e gravadas no
   **Secret Manager** pelo próprio Terraform. Ninguém digita nem vê a senha.
 - Os pods usam **Workload Identity**: cada Deployment roda com uma KSA anotada
-  para uma Google Service Account com permissão mínima (`cloudsql.client`,
-  `pubsub.publisher`, `datastore.user`…). Nenhuma chave JSON dentro do container.
-- O GitHub Actions autentica por **Workload Identity Federation (OIDC)**: troca
-  o token do próprio workflow por um token de curta duração do GCP, com uma
-  `attribute_condition` que restringe a federação a este repositório. Não existe
-  `GCP_SA_KEY` nos secrets do repositório.
+  para uma Google Service Account de permissão mínima. Nenhuma chave JSON dentro
+  de container.
+- O GitHub Actions autentica por **Workload Identity Federation (OIDC)**, com
+  uma `attribute_condition` que restringe a federação a este repositório. **Não
+  existe `GCP_SA_KEY`** nos secrets — não há segredo de longa duração para vazar.
 
-### 3. A regra de bloqueio do pipeline
+### 3. O pipeline barrou seis vulnerabilidades críticas reais
 
-O enunciado pede que uma vulnerabilidade **CRÍTICA** derrube o pipeline. Uma
-primeira versão bloqueava também em `HIGH`, o que quebrava a esteira em CVEs
-transitórios de imagem base sem correção disponível e tornaria a entrega
-impossível de demonstrar. A decisão foi: `CRITICAL` bloqueia (`exit-code: 1`),
-`HIGH` é escaneado e reportado no log sem falhar. Como `docker-build-push`
-declara `needs: [build-test, lint, security-scan]`, uma CVE crítica impede que a
-imagem chegue a ser construída — não só que seja publicada.
+Não foi preciso inserir uma vulnerabilidade proposital para demonstrar a regra de
+bloqueio: o código herdado da Fase 2 já tinha as suas. O job `docker-build-push`
+declara `needs: [build-test, lint, security-scan]`, então em todos os casos a
+imagem **nem chegou a ser construída**.
+
+| Serviço | Estágio | CVE | Correção aplicada |
+|---|---|---|---|
+| `evaluation-service` | SCA (`trivy fs`) | CVE-2026-33186 | `google.golang.org/grpc` v1.63.2 → v1.79.3 |
+| `auth-service` | Container scan | CVE-2025-68121 | toolchain Go 1.21 → 1.25 (`crypto/tls` na stdlib) |
+| `flag`, `targeting`, `analytics` | Container scan | CVE-2026-8376, CVE-2026-13221, CVE-2026-42496 | `apt-get upgrade` na imagem final (`perl-base` do Debian 13) |
+
+Decisão associada: uma primeira versão bloqueava também em `HIGH`, o que quebrava
+a esteira em CVEs transitivos de imagem base sem correção publicada e tornaria a
+entrega impossível de demonstrar. O corte ficou em `CRITICAL` — que é o que o
+enunciado pede — e `HIGH` é escaneado e impresso no log sem travar o fluxo.
 
 ### 4. Ordem de criação entre Terraform e ArgoCD
 
-Os `kubernetes_service_account` com anotação de Workload Identity precisam
-existir antes do primeiro sync do ArgoCD, senão os pods sobem sem identidade e
-falham ao falar com Cloud SQL/Pub/Sub. Por isso o namespace e as KSAs são
-criados pelo Terraform (providers `kubernetes`/`helm` autenticados com o token
-de curta duração do `google_client_config`), e os Deployments/Services ficam no
-`gitops/`, sob responsabilidade do ArgoCD.
+As `kubernetes_service_account` com anotação de Workload Identity precisam existir
+antes do primeiro sync do ArgoCD, senão os pods sobem sem identidade e falham ao
+falar com Cloud SQL e Pub/Sub. Por isso o namespace e as KSAs são criados pelo
+Terraform (providers `kubernetes`/`helm` autenticados com token de curta duração
+do `google_client_config`), e os Deployments/Services ficam no `gitops/`, sob
+responsabilidade do ArgoCD.
 
-### 5. Pub/Sub e a "poison pill"
+### 5. `runAsNonRoot` exige UID numérico
 
-A subscription ganhou `dead_letter_policy` com 5 tentativas e um tópico de DLQ.
-Sem isso, uma mensagem malformada ficaria em redelivery infinito — problema que
-já existia na versão Fase 2 do worker.
+Os Deployments subiam com `CreateContainerConfigError`. O kubelet só consegue
+provar que o usuário não é root se o UID for numérico — `USER appuser` no
+Dockerfile não basta. Corrigido com `runAsUser: 1000` no `securityContext`.
 
-### 6. `<PREENCHER com o que realmente aconteceu no apply>`
+### 6. Ferramental de CI: três falhas encadeadas
 
-<Ex.: quota de CPUs da região, tempo de criação do peering de Private Service
-Access, ajuste de versão do chart do ArgoCD, primeiro sync OutOfSync etc.>
+Os cinco workflows falhavam em `startup_failure` sem gerar log de job. Causa:
+*Workflow permissions* do repositório em read-only, enquanto os workflows
+reutilizáveis declaram `contents: write` para o job de GitOps — o GitHub recusa
+o workflow antes de iniciar. Depois disso, a `aquasecurity/trivy-action` falhou
+na própria instalação do binário; a solução foi baixar o release oficial em
+versão fixa, o que também deixa o scan reproduzível. Por fim, `golangci-lint`
+v1.61 não lê módulos Go 1.25 e a action v6 não fala com o golangci-lint v2 —
+foi preciso subir os dois juntos.
+
+### 7. Private Service Access
+
+Cloud SQL e Memorystore rodam em um projeto da Google, não no nosso. Alcançá-los
+por IP privado exige reservar uma faixa e estabelecer um VPC peering antes — e
+esse peering leva minutos. Os módulos de dados recebem o id da conexão como
+variável e o declaram em `depends_on`, expressando "espere o peering" sem acoplar
+um módulo ao outro.
 
 ## Estimativa de custos
 
-`<Inserir print da estimativa — Google Cloud Pricing Calculator ou a tela de
-Billing → Reports do projeto.>`
+`<Inserir print do Google Cloud Pricing Calculator ou de Billing → Reports>`
 
-Composição aproximada do ambiente (`us-central1`, 24x7):
+Composição do ambiente em `us-central1`, 24×7:
 
-| Recurso | Configuração | Estimativa |
+| Recurso | Configuração | US$/mês |
 |---|---|---|
-| GKE — node pool | 2x `e2-standard-2` | ~US$ 97/mês |
-| GKE — cluster management fee | zonal | US$ 0 (primeiro cluster zonal é gratuito) |
-| Cloud SQL | 3x `db-f1-micro`, 10 GB | ~US$ 30/mês |
-| Memorystore Redis | BASIC, 1 GB | ~US$ 35/mês |
-| Cloud NAT | 1 gateway | ~US$ 32/mês |
-| Artifact Registry | < 10 GB | ~US$ 1/mês |
-| Pub/Sub + Firestore | volume de demonstração | dentro do free tier |
+| GKE — node pool | 2× `e2-standard-2` | ~97 |
+| GKE — management fee | zonal (primeiro cluster) | 0 |
+| Cloud SQL | 3× `db-f1-micro`, 10 GB | ~30 |
+| Memorystore Redis | BASIC, 1 GB | ~35 |
+| Cloud NAT | 1 gateway | ~32 |
+| Artifact Registry | < 10 GB | ~1 |
+| Pub/Sub + Firestore | volume de demonstração | free tier |
+| **Total aproximado** | | **~195** |
 
-> Para não queimar crédito depois da entrega: `terraform destroy` derruba tudo.
+Cluster zonal em vez de regional é a maior economia isolada: um terço do custo de
+controle e criação bem mais rápida. Em produção seria regional, com HA no Cloud
+SQL e réplica no Memorystore.
+
+Para não consumir crédito após a entrega: `cd terraform && terraform destroy`.
+O bucket de state sobrevive (`force_destroy = false`).
