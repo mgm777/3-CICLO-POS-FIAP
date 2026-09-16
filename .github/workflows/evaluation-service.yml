@@ -20,4 +20,5 @@ jobs:
     with:
       service_name: evaluation-service
       service_path: services/evaluation-service
+      go_version: "1.25"
     secrets: inherit
