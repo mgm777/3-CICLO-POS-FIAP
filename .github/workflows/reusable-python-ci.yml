@@ -104,8 +104,11 @@ jobs:
       # uma action de terceiro mudou de comportamento.
       - name: Instala o Trivy
         run: |
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-            | sh -s -- -b "$HOME/.trivy-bin" v0.58.1
+          TRIVY_VERSION=0.58.1
+          mkdir -p "$HOME/.trivy-bin"
+          curl -sSfL -o /tmp/trivy.tar.gz \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          tar -xzf /tmp/trivy.tar.gz -C "$HOME/.trivy-bin" trivy
           echo "$HOME/.trivy-bin" >> "$GITHUB_PATH"
           trivy --version
 
@@ -144,8 +147,11 @@ jobs:
       # Container Scan: a imagem final (base + libs do SO) tambem e auditada.
       - name: Instala o Trivy
         run: |
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-            | sh -s -- -b "$HOME/.trivy-bin" v0.58.1
+          TRIVY_VERSION=0.58.1
+          mkdir -p "$HOME/.trivy-bin"
+          curl -sSfL -o /tmp/trivy.tar.gz \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          tar -xzf /tmp/trivy.tar.gz -C "$HOME/.trivy-bin" trivy
           echo "$HOME/.trivy-bin" >> "$GITHUB_PATH"
 
       - name: Container Scan - Trivy image (bloqueia em CRITICAL)
